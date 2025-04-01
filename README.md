@@ -1,4 +1,9 @@
 # RenAIssance OCR Pipeline for Historical Spanish Texts
+NOTE: I HAVE ALSO ADDED A SHORT PDF REPORT FOR BETTER UNDERSTANDING
+Author: Kulkarni Pranav Pradeeprao 
+Indian Institute of Technology, Bombay (Mumbai, Maharashtra, India)
+Contact: pranavesque@gmail.com | 22b0642@iitb.ac.in 
+
 
 An end-to-end system for recognizing and correcting text in early modern printed documents, combining computer vision and language models.
 
