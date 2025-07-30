@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrOCR Image Annotation & Correction Tool</title>
+    <!-- Fabric.js library from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .image-panel, .inference-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .image-panel h3, .inference-panel h3 {
+            margin-top: 0;
+            color: #495057;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .toolbar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .upload-section {
+            background: #d4edda;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px dashed #28a745;
+        }
+        
+        .canvas-container {
+            border: 2px solid #ddd;
+            margin: 10px 0;
+            display: inline-block;
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .inference-container {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+        }
+        
+        .text-comparison {
+            margin-bottom: 20px;
+        }
+        
+        .text-section {
+            margin-bottom: 15px;
+        }
+        
+        .text-section label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+        
+        .text-section textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        
+        .original-text {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        
+        .corrected-text {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        select, input, button {
+            padding: 10px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            cursor: pointer;
+            border: none;
+            font-weight: 500;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.3);
+        }
+        
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+        
+        .btn-success:hover {
+            box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+        }
+        
+        .btn-danger:hover {
+            box-shadow: 0 5px 15px rgba(220,53,69,0.3);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+            color: #212529;
+        }
+        
+        .spanish-chars {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .spanish-chars button {
+            min-width: 35px;
+            height: 35px;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .status {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        
+        .current-image {
+            font-weight: bold;
+            color: #007bff;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 2px solid #007bff;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+        }
+        
+        .inference-stats {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #1565c0;
+        }
+        
+        .debug-section {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .toolbar, .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TrOCR Image Annotation & Correction Tool</h1>
+        
+        <div class="upload-section">
+            <label for="fileInput" class="file-label">
+                📁 Upload Image for OCR Processing
+            </label>
+            <input type="file" id="fileInput" name="file" class="file-input" accept="image/*,.pdf" />
+            <p style="margin: 10px 0 0 0; color: #666;">
+                Supported formats: JPG, PNG, PDF, TIFF, BMP (Max 16MB)
+            </p>
+        </div>
+        
+        <div class="debug-section">
+            <h4>Debug Upload Test:</h4>
+            <form id="debugForm" enctype="multipart/form-data">
+                <input type="file" name="file" accept="image/*" id="debugFileInput">
+                <button type="button" onclick="debugUpload()">Upload Test</button>
+            </form>
+        </div>
+        
+        <div class="toolbar">
+            <button id="drawModeBtn">🖊️ Draw Mode</button>
+            <button id="selectModeBtn">👆 Select Mode</button>
+            <button id="deleteBoxBtn" disabled>🗑️ Delete Selected Box</button>
+            <button id="rerunInferenceBtn" class="btn-warning">🔄 Re-run OCR</button>
+            <div class="current-image" id="currentImageName">No image loaded</div>
+        </div>
+        
+        <div class="main-content">
+            <div class="image-panel">
+                <h3>📷 Image & Annotations</h3>
+                <div class="canvas-container">
+                    <canvas id="annotationCanvas" width="600" height="400"></canvas>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <div>
+                        <label for="errorType">Error Type:</label>
+                        <select id="errorType">
+                            <option value="spelling">Spelling</option>
+                            <option value="grammar">Grammar</option>
+                            <option value="spacing">Spacing</option>
+                            <option value="formatting">Formatting</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-top: 10px;">
+                        <label for="textInput">Annotation Text:</label>
+                        <input type="text" id="textInput" placeholder="Enter text for annotation">
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <label>Spanish Characters (click to insert into focused text field):</label>
+                        <div class="spanish-chars">
+                            <button type="button" onclick="insertSpanishChar('ñ')">ñ</button>
+                            <button type="button" onclick="insertSpanishChar('á')">á</button>
+                            <button type="button" onclick="insertSpanishChar('é')">é</button>
+                            <button type="button" onclick="insertSpanishChar('í')">í</button>
+                            <button type="button" onclick="insertSpanishChar('ó')">ó</button>
+                            <button type="button" onclick="insertSpanishChar('ú')">ú</button>
+                            <button type="button" onclick="insertSpanishChar('ü')">ü</button>
+                            <button type="button" onclick="insertSpanishChar('¿')">¿</button>
+                            <button type="button" onclick="insertSpanishChar('¡')">¡</button>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 10px;">
+                        <label>Spanish Characters:</label>
+                        <div class="spanish-chars">
+                            <button type="button" onclick="insertSpanishChar('ñ')">ñ</button>
+                            <button type="button" onclick="insertSpanishChar('á')">á</button>
+                            <button type="button" onclick="insertSpanishChar('é')">é</button>
+                            <button type="button" onclick="insertSpanishChar('í')">í</button>
+                            <button type="button" onclick="insertSpanishChar('ó')">ó</button>
+                            <button type="button" onclick="insertSpanishChar('ú')">ú</button>
+                            <button type="button" onclick="insertSpanishChar('ü')">ü</button>
+                            <button type="button" onclick="insertSpanishChar('¿')">¿</button>
+                            <button type="button" onclick="insertSpanishChar('¡')">¡</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="inference-panel">
+                <h3>🤖 OCR Inference & Correction</h3>
+                <div class="inference-stats" id="inferenceStats">
+                    No inference data available
+                </div>
+                
+                <div class="text-comparison">
+                    <div class="text-section">
+                        <label for="originalText">Original OCR Output:</label>
+                        <textarea id="originalText" class="original-text" readonly placeholder="OCR output will appear here..."></textarea>
+                    </div>
+                    
+                    <div class="text-section">
+                        <label for="correctedText">Corrected Text:</label>
+                        <textarea id="correctedText" class="corrected-text" placeholder="Make corrections here..."></textarea>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button id="saveCorrectionBtn" class="btn-success">💾 Save Correction</button>
+                    <button id="resetCorrectionBtn" class="btn-warning">↩️ Reset to Original</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="nextImageBtn">▶️ Next Image</button>
+            <button id="saveAnnotationsBtn" class="btn-success">💾 Save Annotations</button>
+            <button id="clearAllBtn" class="btn-danger">🗑️ Clear All Boxes</button>
+        </div>
+        
+        <div class="status" id="statusMessage"></div>
+    </div>
+
+    <script>
+        // Initialize Fabric.js canvas
+        const canvas = new fabric.Canvas('annotationCanvas');
+        
+        // Global variables
+        let currentImageName = '';
+        let isDrawing = false;
+        let startX, startY;
+        let currentRect = null;
+        let drawMode = true;
+        let currentInferenceData = null;
+        
+        // Canvas settings
+        canvas.selection = false;
+        
+        // Initialize the application
+        function init() {
+            setupEventListeners();
+            loadFirstImage();
+            updateModeButtons();
+        }
+        
+        function setupEventListeners() {
+            // File upload
+            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+            
+            // Mode buttons
+            document.getElementById('drawModeBtn').addEventListener('click', () => setDrawMode(true));
+            document.getElementById('selectModeBtn').addEventListener('click', () => setDrawMode(false));
+            
+            // Control buttons
+            document.getElementById('deleteBoxBtn').addEventListener('click', deleteSelectedBox);
+            document.getElementById('nextImageBtn').addEventListener('click', loadNextImage);
+            document.getElementById('saveAnnotationsBtn').addEventListener('click', saveAnnotations);
+            document.getElementById('clearAllBtn').addEventListener('click', clearAllBoxes);
+            document.getElementById('rerunInferenceBtn').addEventListener('click', rerunInference);
+            
+            // Inference controls
+            document.getElementById('saveCorrectionBtn').addEventListener('click', saveCorrection);
+            document.getElementById('resetCorrectionBtn').addEventListener('click', resetCorrection);
+            
+            // Canvas events
+            canvas.on('mouse:down', onMouseDown);
+            canvas.on('mouse:move', onMouseMove);
+            canvas.on('mouse:up', onMouseUp);
+            canvas.on('selection:created', onSelectionCreated);
+            canvas.on('selection:updated', onSelectionUpdated);
+            canvas.on('selection:cleared', onSelectionCleared);
+            
+            // Form events
+            document.getElementById('errorType').addEventListener('change', updateSelectedBoxErrorType);
+            document.getElementById('textInput').addEventListener('input', updateSelectedBoxText);
+        }
+        
+        function handleFileUpload(event) {
+            console.log("🔔 handleFileUpload fired", event);
+            const file = event.target.files[0];
+            console.log("  selected file:", file);
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            showStatus('Uploading and processing image...', 'success');
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentImageName = data.filename;
+                    loadCurrentImage();
+                    loadInferenceData();
+                    updateImageName();
+                    showStatus(`File uploaded successfully! OCR completed.`, 'success');
+                } else {
+                    showStatus(`Upload failed: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                showStatus('Upload failed. Please try again.', 'error');
+            });
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        // Debug upload function
+        function debugUpload() {
+            const fileInput = document.getElementById('debugFileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Debug upload response:', data);
+                if (data.success) {
+                    alert(`Upload successful!\nFilename: ${data.filename}\nOCR: ${data.inference}`);
+                    // Also update the main interface
+                    currentImageName = data.filename;
+                    loadCurrentImage();
+                    loadInferenceData();
+                    updateImageName();
+                } else {
+                    alert(`Upload failed: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Debug upload error:', error);
+                alert('Upload failed. Check console for details.');
+            });
+        }
+        
+        function loadInferenceData() {
+            if (!currentImageName) return;
+            
+            fetch(`/get_inference/${currentImageName}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('inferenceStats').textContent = 'No inference data available';
+                        document.getElementById('originalText').value = '';
+                        document.getElementById('correctedText').value = '';
+                    } else {
+                        currentInferenceData = data;
+                        document.getElementById('originalText').value = data.original_text || '';
+                        document.getElementById('correctedText').value = data.corrected_text || '';
+                        
+                        const stats = `Image: ${data.image}`;
+                        document.getElementById('inferenceStats').textContent = stats;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading inference:', error);
+                });
+        }
+        
+        function saveCorrection() {
+            if (!currentImageName) {
+                showStatus('No image selected', 'error');
+                return;
+            }
+            
+            const correctedText = document.getElementById('correctedText').value;
+            
+            fetch('/update_inference', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image: currentImageName,
+                    corrected_text: correctedText
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus('Correction saved successfully!', 'success');
+                    if (currentInferenceData) {
+                        currentInferenceData.corrected_text = correctedText;
+                    }
+                } else {
+                    showStatus(`Error saving correction: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving correction:', error);
+                showStatus('Error saving correction', 'error');
+            });
+        }
+        
+        function resetCorrection() {
+            if (currentInferenceData) {
+                document.getElementById('correctedText').value = currentInferenceData.original_text || '';
+                showStatus('Reset to original OCR output', 'success');
+            }
+        }
+        
+        function rerunInference() {
+            if (!currentImageName) {
+                showStatus('No image selected', 'error');
+                return;
+            }
+            
+            showStatus('Re-running OCR inference...', 'success');
+            
+            fetch('/rerun_inference', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image: currentImageName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('originalText').value = data.inference;
+                    document.getElementById('correctedText').value = data.inference;
+                    showStatus('OCR inference completed!', 'success');
+                    
+                    // Update current inference data
+                    if (currentInferenceData) {
+                        currentInferenceData.original_text = data.inference;
+                        currentInferenceData.corrected_text = data.inference;
+                    }
+                } else {
+                    showStatus(`Error running inference: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error running inference:', error);
+                showStatus('Error running inference', 'error');
+            });
+        }
+        
+        function setDrawMode(drawing) {
+            drawMode = drawing;
+            canvas.selection = !drawing;
+            
+            // Clear any active selection when switching modes
+            canvas.discardActiveObject();
+            
+            // Update all existing objects
+            canvas.forEachObject(obj => {
+                if (obj.type === 'rect') {
+                    obj.selectable = !drawing;
+                    obj.evented = !drawing;
+                }
+            });
+            
+            updateModeButtons();
+            canvas.renderAll();
+        }
+        
+        function updateModeButtons() {
+            const drawBtn = document.getElementById('drawModeBtn');
+            const selectBtn = document.getElementById('selectModeBtn');
+            
+            if (drawMode) {
+                drawBtn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+                selectBtn.style.background = 'linear-gradient(45deg, #007bff, #0056b3)';
+            } else {
+                drawBtn.style.background = 'linear-gradient(45deg, #007bff, #0056b3)';
+                selectBtn.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+            }
+        }
+        
+        function onMouseDown(options) {
+            if (!drawMode) return;
+            
+            isDrawing = true;
+            const pointer = canvas.getPointer(options.e);
+            startX = pointer.x;
+            startY = pointer.y;
+            
+            currentRect = new fabric.Rect({
+                left: startX,
+                top: startY,
+                width: 0,
+                height: 0,
+                fill: 'transparent',
+                stroke: '#ff0000',
+                strokeWidth: 2,
+                selectable: false,
+                evented: false,
+                errorType: 'spelling',
+                text: ''
+            });
+            
+            canvas.add(currentRect);
+        }
+        
+        function onMouseMove(options) {
+            if (!isDrawing || !currentRect) return;
+            
+            const pointer = canvas.getPointer(options.e);
+            const width = Math.abs(pointer.x - startX);
+            const height = Math.abs(pointer.y - startY);
+            
+            currentRect.set({
+                left: Math.min(startX, pointer.x),
+                top: Math.min(startY, pointer.y),
+                width: width,
+                height: height
+            });
+            
+            canvas.renderAll();
+        }
+        
+        function onMouseUp() {
+            if (!isDrawing) return;
+            
+            isDrawing = false;
+            if (currentRect && (currentRect.width < 5 || currentRect.height < 5)) {
+                canvas.remove(currentRect);
+            } else if (currentRect) {
+                // Set the correct interaction properties based on current mode
+                currentRect.set({
+                    selectable: !drawMode,
+                    evented: !drawMode
+                });
+            }
+            currentRect = null;
+            canvas.renderAll();
+        }
+        
+        function onSelectionCreated(e) {
+            document.getElementById('deleteBoxBtn').disabled = false;
+            updateFormFields(e.selected[0]);
+        }
+        
+        function onSelectionUpdated(e) {
+            updateFormFields(e.selected[0]);
+        }
+        
+        function onSelectionCleared() {
+            document.getElementById('deleteBoxBtn').disabled = true;
+            clearFormFields();
+        }
+        
+        function updateFormFields(obj) {
+            if (obj) {
+                document.getElementById('errorType').value = obj.errorType || 'spelling';
+                document.getElementById('textInput').value = obj.text || '';
+            }
+        }
+        
+        function clearFormFields() {
+            document.getElementById('errorType').value = 'spelling';
+            document.getElementById('textInput').value = '';
+        }
+        
+        function updateSelectedBoxErrorType() {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                activeObject.errorType = document.getElementById('errorType').value;
+            }
+        }
+        
+        function updateSelectedBoxText() {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                activeObject.text = document.getElementById('textInput').value;
+            }
+        }
+        
+        function deleteSelectedBox() {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                canvas.remove(activeObject);
+                canvas.discardActiveObject();
+                canvas.renderAll();
+            }
+        }
+        
+        function clearAllBoxes() {
+            if (confirm('Are you sure you want to clear all annotation boxes?')) {
+                const objects = canvas.getObjects().filter(obj => obj.type === 'rect');
+                objects.forEach(obj => canvas.remove(obj));
+                canvas.renderAll();
+                showStatus('All annotation boxes cleared', 'success');
+            }
+        }
+        
+        function saveAnnotations() {
+            if (!currentImageName) {
+                showStatus('No image selected', 'error');
+                return;
+            }
+            
+            const boxes = canvas.getObjects()
+                .filter(obj => obj.type === 'rect')
+                .map(obj => ({
+                    x: obj.left,
+                    y: obj.top,
+                    width: obj.width,
+                    height: obj.height,
+                    errorType: obj.errorType || 'spelling',
+                    text: obj.text || ''
+                }));
+            
+            const annotationData = {
+                image: currentImageName,
+                annotations: boxes,
+                timestamp: new Date().toISOString()
+            };
+            
+            fetch('/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(annotationData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`Annotations saved! (${boxes.length} boxes)`, 'success');
+                } else {
+                    showStatus('Error saving annotations', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving annotations:', error);
+                showStatus('Error saving annotations', 'error');
+            });
+        }
+        
+        function insertSpanishChar(char) {
+            // Get the currently focused textarea or input
+            const activeElement = document.activeElement;
+            let targetInput;
+            
+            // Determine which input to use
+            if (activeElement && (activeElement.id === 'textInput' || activeElement.id === 'correctedText')) {
+                targetInput = activeElement;
+            } else {
+                // Default to corrected text if no specific input is focused
+                targetInput = document.getElementById('correctedText');
+            }
+            
+            const start = targetInput.selectionStart || 0;
+            const end = targetInput.selectionEnd || 0;
+            const text = targetInput.value;
+            
+            targetInput.value = text.substring(0, start) + char + text.substring(end);
+            targetInput.setSelectionRange(start + 1, start + 1);
+            targetInput.focus();
+            
+            // Update the selected box if working with annotation text
+            if (targetInput.id === 'textInput') {
+                updateSelectedBoxText();
+            }
+        }
+        
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = 'block';
+            
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 5000);
+        }
+        
+        function updateImageName() {
+            document.getElementById('currentImageName').textContent = currentImageName || 'No image loaded';
+        }
+        
+        function loadCurrentImage() {
+            if (!currentImageName) return;
+            const imgUrl = `/image/${currentImageName}`;
+            
+            fabric.Image.fromURL(imgUrl, img => {
+                canvas.clear();
+                
+                // Preserve aspect ratio and resize canvas to fit image
+                const maxWidth = 800;
+                const maxHeight = 600;
+                
+                let scaleX = maxWidth / img.width;
+                let scaleY = maxHeight / img.height;
+                let scale = Math.min(scaleX, scaleY);
+                
+                const newWidth = img.width * scale;
+                const newHeight = img.height * scale;
+                
+                canvas.setDimensions({
+                    width: newWidth,
+                    height: newHeight
+                });
+                
+                canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                    scaleX: scale,
+                    scaleY: scale
+                });
+            });
+        }
+        
+        function loadFirstImage() {
+            fetch('/get_current_image')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.image_name) {
+                        currentImageName = data.image_name;
+                        updateImageName();
+                        loadCurrentImage();
+                        loadInferenceData();
+                    }
+                });
+        }
+        
+        function loadNextImage() {
+            fetch('/next_image', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    currentImageName = data.image_name || '';
+                    updateImageName();
+                    if (currentImageName) {
+                        loadCurrentImage();
+                        loadInferenceData();
+                    } else {
+                        showStatus('No more images.', 'error');
+                    }
+                });
+        }
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+            console.log("✅ App initialized");
+        });
+    </script>
+</body>
+</html>
